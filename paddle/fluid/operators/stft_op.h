@@ -20,101 +20,13 @@
 #include "paddle/fluid/framework/tensor.h"
 
 #include "paddle/fluid/operators/frame_op.h"
+#include "paddle/fluid/operators/spectral_op.h"
 #include "paddle/fluid/platform/device_context.h"
 
 namespace paddle {
 namespace operators {
 
 using Tensor = framework::Tensor;
-
-enum class FFTNormMode : int64_t {
-  none,       // No normalization
-  by_sqrt_n,  // Divide by sqrt(signal_size)
-  by_n,       // Divide by signal_size
-};
-
-// Enum representing the FFT type
-enum class FFTTransformType : int64_t {
-  C2C = 0,  // Complex-to-complex
-  R2C,      // Real-to-complex
-  C2R,      // Complex-to-real
-};
-
-// Returns true if the transform type has complex input
-inline bool has_complex_input(FFTTransformType type) {
-  switch (type) {
-    case FFTTransformType::C2C:
-    case FFTTransformType::C2R:
-      return true;
-
-    case FFTTransformType::R2C:
-      return false;
-  }
-  PADDLE_THROW(platform::errors::InvalidArgument("Unknown FFTTransformType"));
-}
-
-// Returns true if the transform type has complex output
-inline bool has_complex_output(FFTTransformType type) {
-  switch (type) {
-    case FFTTransformType::C2C:
-    case FFTTransformType::R2C:
-      return true;
-
-    case FFTTransformType::C2R:
-      return false;
-  }
-  PADDLE_THROW(platform::errors::InvalidArgument("Unknown FFTTransformType"));
-}
-
-namespace {
-FFTNormMode get_norm_from_string(const std::string& norm, bool forward) {
-  if (norm.empty() || norm == "backward") {
-    return forward ? FFTNormMode::none : FFTNormMode::by_n;
-  }
-
-  if (norm == "forward") {
-    return forward ? FFTNormMode::by_n : FFTNormMode::none;
-  }
-
-  if (norm == "ortho") {
-    return FFTNormMode::by_sqrt_n;
-  }
-
-  PADDLE_THROW(platform::errors::InvalidArgument(
-      "FFT norm string must be 'forward' or 'backward' or 'ortho', "
-      "received %s",
-      norm));
-}
-}  // anonymous namespace
-
-template <typename T>
-T compute_factor(int64_t size, FFTNormMode normalization) {
-  constexpr auto one = static_cast<T>(1);
-  switch (normalization) {
-    case FFTNormMode::none:
-      return one;
-    case FFTNormMode::by_n:
-      return one / static_cast<T>(size);
-    case FFTNormMode::by_sqrt_n:
-      return one / std::sqrt(static_cast<T>(size));
-  }
-  PADDLE_THROW(
-      platform::errors::InvalidArgument("Unsupported normalization type"));
-}
-
-template <typename DeviceContext, typename Ti, typename To>
-struct FFTC2CFunctor {
-  void operator()(const DeviceContext& ctx, const Tensor* X, Tensor* out,
-                  const std::vector<int64_t>& axes, FFTNormMode normalization,
-                  bool forward);
-};
-
-template <typename DeviceContext, typename Ti, typename To>
-struct FFTR2CFunctor {
-  void operator()(const DeviceContext& ctx, const Tensor* X, Tensor* out,
-                  const std::vector<int64_t>& axes, FFTNormMode normalization,
-                  bool forward);
-};
 
 template <typename DeviceContext, typename T>
 class StftKernel : public framework::OpKernel<T> {

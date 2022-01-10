@@ -13,58 +13,9 @@
 // limitations under the License.
 
 #include "paddle/fluid/operators/stft_op.h"
-#include "extern_pocketfft/pocketfft_hdronly.h"
 
 namespace paddle {
 namespace operators {
-
-template <typename Ti, typename To>
-struct FFTR2CFunctor<platform::CPUDeviceContext, Ti, To> {
-  void operator()(const platform::CPUDeviceContext& ctx, const Tensor* X,
-                  Tensor* out, const std::vector<int64_t>& axes,
-                  FFTNormMode normalization, bool forward) {
-    using R = Ti;
-    using C = std::complex<R>;
-
-    const auto& input_dim = X->dims();
-    const std::vector<size_t> in_sizes =
-        framework::vectorize<size_t>(input_dim);
-    std::vector<std::ptrdiff_t> in_strides =
-        framework::vectorize<std::ptrdiff_t>(framework::stride(input_dim));
-    {
-      const int64_t data_size = sizeof(R);
-      std::transform(in_strides.begin(), in_strides.end(), in_strides.begin(),
-                     [&](std::ptrdiff_t s) { return s * data_size; });
-    }
-
-    const auto& output_dim = out->dims();
-    const std::vector<size_t> out_sizes =
-        framework::vectorize<size_t>(output_dim);
-    std::vector<std::ptrdiff_t> out_strides =
-        framework::vectorize<std::ptrdiff_t>(framework::stride(output_dim));
-    {
-      const int64_t data_size = sizeof(C);
-      std::transform(out_strides.begin(), out_strides.end(),
-                     out_strides.begin(),
-                     [&](std::ptrdiff_t s) { return s * data_size; });
-    }
-
-    const auto* in_data = X->data<R>();
-    auto* out_data = reinterpret_cast<C*>(out->data<To>());
-    // pocketfft requires std::vector<size_t>
-    std::vector<size_t> axes_(axes.size());
-    std::copy(axes.begin(), axes.end(), axes_.begin());
-    // compuet normalization factor
-    int64_t signal_numel = 1;
-    for (auto i : axes) {
-      signal_numel *= in_sizes[i];
-    }
-    R factor = compute_factor<R>(signal_numel, normalization);
-    pocketfft::r2c(in_sizes, in_strides, out_strides, axes_, forward, in_data,
-                   out_data, factor);
-  }
-};
-
 class StftOp : public framework::OperatorWithKernel {
  public:
   using framework::OperatorWithKernel::OperatorWithKernel;
