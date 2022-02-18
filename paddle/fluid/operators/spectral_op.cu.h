@@ -312,6 +312,7 @@ void exec_fft(const DeviceContext& ctx, const Tensor* X, Tensor* out,
   FFTConfig* config = nullptr;
 
 #if defined(PADDLE_WITH_CUDA)
+  VLOG(0) << "Using CUDA FFT";
   std::unique_ptr<FFTConfig> config_ = nullptr;
   // create plan
   FFTConfigKey key =
@@ -340,6 +341,7 @@ void exec_fft(const DeviceContext& ctx, const Tensor* X, Tensor* out,
                                          &collapsed_output, forward);
 
 #elif defined(PADDLE_WITH_HIP)
+  VLOG(0) << "Using HIP FFT";
   // create plan
   FFTConfigKey key =
       create_fft_configkey(collapsed_input, collapsed_output, signal_ndim);

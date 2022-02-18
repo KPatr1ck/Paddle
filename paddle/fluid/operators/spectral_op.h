@@ -197,12 +197,12 @@ class DftiDescriptor {
   std::unique_ptr<DFTI_DESCRIPTOR, DftiDescriptorDeleter> desc_;
 };
 
-DftiDescriptor _plan_mkl_fft(const framework::proto::VarType::Type& in_dtype,
-                             const framework::proto::VarType::Type& out_dtype,
-                             const framework::DDim& in_strides,
-                             const framework::DDim& out_strides,
-                             const std::vector<int>& signal_sizes,
-                             FFTNormMode normalization, bool forward) {
+static DftiDescriptor _plan_mkl_fft(
+    const framework::proto::VarType::Type& in_dtype,
+    const framework::proto::VarType::Type& out_dtype,
+    const framework::DDim& in_strides, const framework::DDim& out_strides,
+    const std::vector<int>& signal_sizes, FFTNormMode normalization,
+    bool forward) {
   const DFTI_CONFIG_VALUE precision = [&] {
     switch (in_dtype) {
       case framework::proto::VarType::FP32:
@@ -438,6 +438,7 @@ struct FFTR2CFunctor<platform::CPUDeviceContext, Ti, To> {
   void operator()(const platform::CPUDeviceContext& ctx, const Tensor* x,
                   Tensor* out, const std::vector<int64_t>& axes,
                   FFTNormMode normalization, bool forward) {
+    VLOG(0) << "Using MKL FFT";
     exec_fft<platform::CPUDeviceContext, Ti, To>(ctx, x, out, axes,
                                                  normalization, forward);
   }
@@ -521,6 +522,7 @@ struct FFTR2CFunctor<platform::CPUDeviceContext, Ti, To> {
   void operator()(const platform::CPUDeviceContext& ctx, const Tensor* x,
                   Tensor* out, const std::vector<int64_t>& axes,
                   FFTNormMode normalization, bool forward) {
+    VLOG(0) << "Using Pocket FFT";
     using R = Ti;
     using C = std::complex<R>;
 
